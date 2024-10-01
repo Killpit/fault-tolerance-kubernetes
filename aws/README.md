@@ -1,0 +1,1 @@
+[text](terraform-eks-and-vpc/eks.tf) [text](terraform-eks-and-vpc/main.tf) [text](terraform-eks-and-vpc/provider.tf) [text](terraform-eks-and-vpc/variables.tf) [text](terraform-eks-and-vpc/vpc.tf)
