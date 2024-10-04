@@ -1,0 +1,49 @@
+apiVersion: gke.io/v1alpha1
+kind: GKEClusterConfig
+
+metadata:
+  name: killpit-cluster
+  region: europe-north1  # GKE region corresponds to `eu-north-1` in AWS
+
+# Networking configuration for the VPC
+network:
+  name: killpit-vpc
+  subnets:
+    - name: killpit-subnet
+      region: europe-north1
+      private: true
+
+# Node Pools Configuration
+nodePools:
+  - name: ng-1-killpit-node
+    machineType: e2-medium
+    initialNodeCount: 2
+    minCount: 2
+    maxCount: 3
+    zones:
+      - europe-north1-a
+      - europe-north1-b
+      - europe-north1-c
+    enableAutoprovisioning: true
+
+  - name: ng-2-killpit-node
+    machineType: e2-medium
+    initialNodeCount: 2
+    minCount: 2
+    maxCount: 3
+    zones:
+      - europe-north1-a
+      - europe-north1-b
+      - europe-north1-c
+    enableAutoprovisioning: true
+
+  - name: ng-3-killpit-node
+    machineType: e2-medium
+    initialNodeCount: 2
+    minCount: 2
+    maxCount: 3
+    zones:
+      - europe-north1-a
+      - europe-north1-b
+      - europe-north1-c
+    enableAutoprovisioning: true

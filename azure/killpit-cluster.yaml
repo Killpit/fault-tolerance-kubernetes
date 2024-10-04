@@ -1,0 +1,63 @@
+apiVersion: azure.microsoft.com/v1alpha1
+kind: AKSClusterConfig
+
+metadata:
+  name: killpit-cluster
+  region: eu-north-1
+
+vnet:
+  # Specify multiple Availability Zones for fault tolerance
+  subnets:
+    private: 
+      eu-north-1a: {}
+      eu-north-1b: {}
+      eu-north-1c: {}
+
+managedNodePools:
+  - name: ng-1-killpit-node
+    vmSize: Standard_DS2_v2
+    desiredCapacity: 2
+    minCount: 2
+    maxCount: 3
+    availabilityZones:
+      - eu-north-1a
+      - eu-north-1b
+      - eu-north-1c
+    enableAutoScaling: true
+    # Additional settings
+    nodeTaints: 
+      - key: spot
+        value: true
+        effect: NoSchedule
+        
+  - name: ng-2-killpit-node
+    vmSize: Standard_DS2_v2
+    desiredCapacity: 2
+    minCount: 2
+    maxCount: 3
+    availabilityZones:
+      - eu-north-1a
+      - eu-north-1b
+      - eu-north-1c
+    enableAutoScaling: true
+    # Additional settings
+    nodeTaints: 
+      - key: spot
+        value: true
+        effect: NoSchedule
+        
+  - name: ng-3-killpit-node
+    vmSize: Standard_DS2_v2
+    desiredCapacity: 2
+    minCount: 2
+    maxCount: 3
+    availabilityZones:
+      - eu-north-1a
+      - eu-north-1b
+      - eu-north-1c
+    enableAutoScaling: true
+    # Additional settings
+    nodeTaints: 
+      - key: spot
+        value: true
+        effect: NoSchedule

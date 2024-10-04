@@ -1,0 +1,62 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: killpit-cluster
+  region: eu-north-1
+
+vpc:
+  subnets:
+    private: 
+      eu-north-1a: {}
+      eu-north-1b: {}
+      eu-north-1c: {}
+
+managedNodeGroups:
+  - name: ng-1-killpit-noce
+    instanceType: t3a.medium
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 3
+    volumeSize: 10
+    privateNetworking: true
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+    # Enable multiple AZs for node groups
+    availabilityZones:
+      - eu-north-1a
+      - eu-north-1b
+      - eu-north-1c
+
+  - name: ng-2-killpit-noce
+    instanceType: t3a.medium
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 3
+    volumeSize: 10
+    privateNetworking: true
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+    # Enable multiple AZs for node groups
+    availabilityZones:
+      - eu-north-1a
+      - eu-north-1b
+      - eu-north-1c
+
+  - name: ng-1-killpit-noce
+    instanceType: t3a.medium
+    desiredCapacity: 2
+    minSize: 2
+    maxSize: 3
+    volumeSize: 10
+    privateNetworking: true
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+    # Enable multiple AZs for node groups
+    availabilityZones:
+      - eu-north-1a
+      - eu-north-1b
+      - eu-north-1c
