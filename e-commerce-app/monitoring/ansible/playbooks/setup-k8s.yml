@@ -1,0 +1,60 @@
+---
+- name: Install Kubernetes Components on Monitoring Server
+  hosts: monitoring_server
+  become: true
+  tasks:
+    # Check if Docker is already installed
+    - name: Check if Docker is installed
+      command: docker --version
+      register: docker_version_check
+      ignore_errors: true
+
+    # Install Docker if not already installed
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+      when: docker_version_check.rc != 0
+
+    # Enable and start Docker service
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    # Add Kubernetes APT repository
+    - name: Add Kubernetes apt repository
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        state: present
+      become: true
+
+    - name: Add Kubernetes apt repository for Debian/Ubuntu
+      apt_repository:
+        repo: "deb http://apt.kubernetes.io/ kubernetes-xenial main"
+        state: present
+      become: true
+
+    # Install Kubernetes components (kubelet, kubeadm, kubectl)
+    - name: Install Kubernetes components
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+        update_cache: yes
+
+    # Disable swap (Kubernetes requires swap to be disabled)
+    - name: Disable swap
+      command: swapoff -a
+      become: true
+
+    # Ensure swap is disabled on reboot
+    - name: Remove swap from fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^\s*([^#\s]+)\s+swap\s+'
+        replace: '# \1 swap'

@@ -1,0 +1,28 @@
+---
+- name: Install Helm on Monitoring Server
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Check if Helm is already installed
+      command: helm version
+      register: helm_version
+      ignore_errors: true
+
+    - name: Display Helm version if already installed
+      debug:
+        msg: "Helm version is already installed: {{ helm_version.stdout }}"
+      when: helm_version is defined and helm_version.rc == 0
+
+    - name: Install Helm if not already installed
+      command: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      args:
+        warn: false
+      when: helm_version is not defined or helm_version.rc != 0
+
+    - name: Check Helm version after installation
+      command: helm version
+      register: helm_version_after_install
+
+    - name: Display Helm version after installation
+      debug:
+        "Helm version after installation: {{ helm_version_after_install.stdout }}"

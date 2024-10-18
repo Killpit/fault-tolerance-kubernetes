@@ -1,0 +1,7 @@
+---
+- name: Create Monitoring Namespace
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Create monitoring namespace from YAML file
+      command: kubectl apply -f healthcare-app/monitoring/kubernetes/manifests/namespace.yaml

@@ -1,0 +1,23 @@
+---
+- name: Install Grafana and Prometheus using Helm
+  hosts: monitoring
+  become: true
+  tasks:
+    - name: Add Prometheus Helm repo
+      command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+      args:
+        warn: false
+
+    - name: Add Grafana Helm repo
+      command: helm repo add grafana https://grafana.github.io/helm-charts
+      args:
+        warn: false
+
+    - name: Update Helm repositories
+      command: helm repo update
+
+    - name: Install Prometheus
+      command: helm install prometheus prometheus-community/prometheus --namespace monitoring
+
+    - name: Install Grafana
+      command: helm install grafana grafana/grafana --namespace monitoring
