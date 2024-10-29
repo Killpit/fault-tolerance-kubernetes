@@ -1,0 +1,79 @@
+---
+- name: Configure Grafana
+  hosts: kube_nodes
+  tasks:
+    - name: Create Grafana ConfigMap
+      kubernetes.core.k8s:
+        state: present
+        namespace: monitoring
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: grafana-config
+            namespace: monitoring
+          data:
+            grafana.ini: |
+              [server]
+              root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana
+
+              [security]
+              admin_user = "{{ lookup('ansible.builtin.vault', 'secrets.yml admin_user') }}"
+              admin_password = "{{ lookup('ansible.builtin.vault', 'secrets.yml admin_password') }}"
+
+    - name: Create Grafana Service
+      kubernetes.core.k8s:
+        state: present
+        namespace: monitoring
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: grafana
+            namespace: monitoring
+          spec:
+            type: LoadBalancer
+            ports:
+              - port: 80
+                targetPort: 3000
+            selector:
+              app: grafana
+
+    - name: Create Grafana Deployment
+      kubernetes.core.k8s:
+        state: present
+        namespace: monitoring
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: grafana
+            namespace: monitoring
+          spec:
+            replicas: 3
+            selector:
+              matchLabels:
+                app: grafana
+            template:
+              metadata:
+                labels:
+                  app: grafana
+              spec:
+                containers:
+                  - name: grafana
+                    image: grafana/grafana:latest
+                    ports:
+                      - containerPort: 3000
+                    env:
+                      - name: GRAFANA_SECURITY_ADMIN_PASSWORD
+                        value: "{{ lookup('ansible.builtin.vault', 'secrets.yml admin_password') }}"
+                      - name: GRAFANA_SECURITY_ADMIN_USER
+                        value: "{{ lookup('ansible.builtin.vault', 'secrets.yml admin_user') }}"
+                    volumeMounts:
+                      - name: config-volume
+                        mountPath: /etc/grafana
+
+                volumes:
+                  - name: config-volume
+                    configMap:
+                      name: grafana-config

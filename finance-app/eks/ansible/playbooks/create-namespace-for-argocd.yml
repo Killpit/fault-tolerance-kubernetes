@@ -1,0 +1,9 @@
+---
+- name: Create ArgoCD Namespace
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Create ArgoCD namespace
+      kubernetes.core.k8s:
+        name: argocd
+        state: present
