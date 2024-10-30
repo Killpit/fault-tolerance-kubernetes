@@ -1,0 +1,61 @@
+---
+- name: Configure Argo CD on AKS with LoadBalancer and Vault Integration
+  hosts: localhost
+  become: yes
+  vars:
+    argocd_namespace: argocd
+
+  tasks:
+    - name: Retrieve Argo CD admin password
+      command: >
+        kubectl get secret argocd-secret -n {{ argocd_namespace }} -o jsonpath='{.data.admin\.password}' | base64 --decode
+      register: argocd_admin_password_raw
+
+    - name: Update Vault with Argo CD admin password
+      command: >
+        echo "{{ argocd_admin_password_raw.stdout }}" | ansible-vault encrypt --vault-password-file /path/to/vault_pass.txt --output /path/to/vault/vault.yml
+      when: argocd_admin_password_raw.stdout != ""
+
+    - name: Configure LoadBalancer Service for Argo CD on AKS
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: argocd-server
+            labels:
+              app.kubernetes.io/name: argocd-server
+            annotations:
+              service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+          spec:
+            type: LoadBalancer
+            selector:
+              app.kubernetes.io/name: argocd-server
+            ports:
+              - port: 443
+                targetPort: 443
+
+    - name: Wait for LoadBalancer IP to be assigned on AKS
+      kubernetes.core.k8s_info:
+        kind: Service
+        namespace: "{{ argocd_namespace }}"
+        name: argocd-server
+      register: argocd_service
+      until: argocd_service.resources[0].status.loadBalancer.ingress is defined
+      retries: 10
+      delay: 10
+
+    - name: Update Argo CD ConfigMap with LoadBalancer URL on AKS
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ argocd_namespace }}"
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: argocd-cm
+          data:
+            url: "https://{{ argocd_service.resources[0].status.loadBalancer.ingress[0].ip }}"
+            admin.password: "{{ argocd_admin_password_raw.stdout }}"
