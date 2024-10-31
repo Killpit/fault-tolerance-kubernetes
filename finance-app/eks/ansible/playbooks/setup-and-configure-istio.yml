@@ -1,0 +1,62 @@
+---
+- name: Install Istio on Kubernetes using Helm
+  hosts: localhost
+  become: yes
+  vars:
+    istio_namespace: istio-system
+    istio_ingress_namespace: istio-ingress
+
+  tasks:
+    - name: Create Istio namespace
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ istio_namespace }}"
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ istio_namespace }}"
+    
+    - name: Install Istio base chart
+      command: >
+        helm install istio-base istio/base -n {{ istio_namespace }} --set defaultRevision=default
+      register: istio_base_install
+
+    - name: Validate Istio base chart installation
+      command: helm ls -n {{ istio_namespace }}
+      register: helm_list_output
+
+    - name: Check if Istio base is deployed
+      assert:
+        that:
+          - "'istio-base' in helm_list_output.stdout"
+          - "'deployed' in helm_list_output.stdout"
+
+    - name: Install Istiod service
+      command: >
+        helm install istiod istio/istiod -n {{ istio_namespace }} --wait
+      register: istiod_install
+
+    - name: Validate Istiod installation
+      command: helm ls -n {{ istio_namespace }}
+      register: helm_list_output
+
+    - name: Check if Istiod is deployed
+      assert:
+        that:
+          - "'istiod' in helm_list_output.stdout"
+          - "'deployed ' in helm_list_output.stdout"
+
+    - name: Create Istio ingress namespace
+      kubernetes.core.k8s:
+        state: present
+        namespace: " {{ istio_ingress_namespace }}"
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ istio_ingress_namespace }}"
+
+    - name: Install Istio ingress gateway
+      command: >
+        helm install istio-ingress istio/gatewat -n {{ istio_ingress_namespace }} --wait
