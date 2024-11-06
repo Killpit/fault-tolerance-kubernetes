@@ -1,0 +1,45 @@
+- name: Install and Configure Velero on AWS
+  hosts: localhost
+  become: yes
+  vars:
+    velero_version: v1.10.1
+    velero_namespace: velero
+    aws_bucket: "your-aws-bucket-name"
+    region: "us-west-2"
+  tasks:
+    - name: Ensure velero namespace exists
+      kubernetes.core.k8s:
+        state: present
+        kind: Namespace
+        name: "{{ velero_namespace }}"
+
+    - name: Create AWS credentials secret for Velero
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ velero_namespace }}"
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: cloud-credentials
+          data:
+            cloud: "{{ lookup('file', 'aws-credentials.txt') | b64encode }}"
+
+    - name: Install Velero on AWS
+      command: >
+        velero install --provider aws
+        --bucket "{{ aws_bucket }}"
+        --secret-file aws-credentials.txt
+        --backup-location-config region="{{ region }}"
+        --snapshot-location-config region="{{ region }}"
+        --namespace "{{ velero_namespace }}"
+        --plugins velero/velero-plugin-for-aws
+        --use-volume-snapshots=false
+
+    - name: Validate Velero installation
+      command: kubectl get pods -n "{{ velero_namespace }}"
+      register: velero_pods
+      until: velero_pods.stdout.find('Running') != -1
+      retries: 5
+      delay: 15
+      ignore_errors: yes

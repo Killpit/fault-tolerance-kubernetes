@@ -1,0 +1,45 @@
+- name: Install and Configure Velero on Azure
+  hosts: localhost
+  become: yes
+  vars:
+    velero_version: v1.10.1
+    velero_namespace: velero
+    azure_container: "your-azure-container-name"
+    resource_group: "your-resource-group"
+    storage_account: "your-storage-account"
+  tasks:
+    - name: Ensure velero namespace exists
+      kubernetes.core.k8s:
+        state: present
+        kind: Namespace
+        name: "{{ velero_namespace }}"
+
+    - name: Create Azure credentials secret for Velero
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ velero_namespace }}"
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: cloud-credentials
+          data:
+            cloud: "{{ lookup('file', 'azure-credentials.txt') | b64encode }}"
+
+    - name: Install Velero on Azure
+      command: >
+        velero install --provider azure
+        --bucket "{{ azure_container }}"
+        --secret-file azure-credentials.txt
+        --backup-location-config resourceGroup="{{ resource_group }}",storageAccount="{{ storage_account }}"
+        --namespace "{{ velero_namespace }}"
+        --plugins velero/velero-plugin-for-microsoft-azure
+        --use-volume-snapshots=false
+
+    - name: Validate Velero installation
+      command: kubectl get pods -n "{{ velero_namespace }}"
+      register: velero_pods
+      until: velero_pods.stdout.find('Running') != -1
+      retries: 5
+      delay: 15
+      ignore_errors: yes

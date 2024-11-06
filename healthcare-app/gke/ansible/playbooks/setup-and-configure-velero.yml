@@ -1,0 +1,44 @@
+- name: Install and Configure Velero on GCP
+  hosts: localhost
+  become: yes
+  vars:
+    velero_version: v1.10.1
+    velero_namespace: velero
+    gcp_bucket: "your-gcp-bucket-name"
+    gcp_service_account: "your-gcp-service-account"
+  tasks:
+    - name: Ensure velero namespace exists
+      kubernetes.core.k8s:
+        state: present
+        kind: Namespace
+        name: "{{ velero_namespace }}"
+
+    - name: Create GCP credentials secret for Velero
+      kubernetes.core.k8s:
+        state: present
+        namespace: "{{ velero_namespace }}"
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: cloud-credentials
+          data:
+            cloud: "{{ lookup('file', 'gcp-credentials.json') | b64encode }}"
+
+    - name: Install Velero on GCP
+      command: >
+        velero install --provider gcp
+        --bucket "{{ gcp_bucket }}"
+        --secret-file gcp-credentials.json
+        --backup-location-config serviceAccount="{{ gcp_service_account }}"
+        --namespace "{{ velero_namespace }}"
+        --plugins velero/velero-plugin-for-gcp
+        --use-volume-snapshots=false
+
+    - name: Validate Velero installation
+      command: kubectl get pods -n "{{ velero_namespace }}"
+      register: velero_pods
+      until: velero_pods.stdout.find('Running') != -1
+      retries: 5
+      delay: 15
+      ignore_errors: yes
