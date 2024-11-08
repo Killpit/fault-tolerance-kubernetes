@@ -2,7 +2,7 @@
   hosts: localhost
   become: yes
   vars:
-    velero_version: v1.10.1
+    velero_version: v1.15.0
     velero_namespace: velero
     gcp_bucket: "your-gcp-bucket-name"
     gcp_service_account: "your-gcp-service-account"
@@ -12,6 +12,20 @@
         state: present
         kind: Namespace
         name: "{{ velero_namespace }}"
+
+    - name: Download Velero binary from GitHub
+      get_url:
+        url: "https://github.com/vmware-tanzu/velero/releases/download/{{ velero_version }}/velero-{{ velero_version }}-linux-amd64.tar.gz"
+        dest: "/tmp/velero-{{ velero_version }}-linux-amd64.tar.gz"
+        mode: '0755'
+
+    - name: Extract Velero binary
+      unarchive:
+        src: "/tmp/velero-{{ velero_version }}-linux-amd64.tar.gz"
+        dest: /usr/local/bin/
+        remote_src: yes
+      args:
+        creates: "/usr/local/bin/velero"
 
     - name: Create GCP credentials secret for Velero
       kubernetes.core.k8s:
@@ -25,15 +39,19 @@
           data:
             cloud: "{{ lookup('file', 'gcp-credentials.json') | b64encode }}"
 
-    - name: Install Velero on GCP
+    - name: Install Velero on GCP with File System Backup and Node Agent
       command: >
-        velero install --provider gcp
+        /usr/local/bin/velero install --provider gcp
         --bucket "{{ gcp_bucket }}"
         --secret-file gcp-credentials.json
         --backup-location-config serviceAccount="{{ gcp_service_account }}"
         --namespace "{{ velero_namespace }}"
         --plugins velero/velero-plugin-for-gcp
         --use-volume-snapshots=false
+        --use-node-agent
+        --privileged-node-agent
+        --default-volumes-to-fs-backup
+        --features=EnableCSI
 
     - name: Validate Velero installation
       command: kubectl get pods -n "{{ velero_namespace }}"

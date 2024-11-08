@@ -1,0 +1,129 @@
+---
+- name: Deploy NGINX Ingress Controller with TLS on AKS
+  hosts: localhost
+  vars:
+    kubeconfig: "{{ kubeconfig }}"
+    ingress_namespace: ingress-nginx
+    website_namespace: website
+  tasks:
+    - name: Ensure ingress-nginx namespace exists
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        kind: Namespace
+        name: "{{ ingress_namespace }}"
+
+    - name: Deploy NGINX ingress controller to AKS using community version
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ingress-nginx-controller
+            namespace: "{{ ingress_namespace }}"
+          spec:
+            replicas: 3
+            selector:
+              matchLabels:
+                app: ingress-nginx
+            template:
+              metadata:
+                labels:
+                  app: ingress-nginx
+              spec:
+                containers:
+                  - name: nginx-ingress-controller
+                    image: "nginx-ingress-controller:latest"  # Community version image
+                    args:
+                      - /nginx-ingress-controller
+                      - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
+                      - --election-id=ingress-controller-leader
+                    env:
+                      - name: POD_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
+
+    - name: Expose NGINX ingress controller service on AKS
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ingress-nginx-controller
+            namespace: "{{ ingress_namespace }}"
+          spec:
+            selector:
+              app: ingress-nginx
+            ports:
+              - port: 80
+                targetPort: 80
+                protocol: TCP
+            type: LoadBalancer
+
+    - name: Create website service for AKS
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: website-service
+            namespace: "{{ website_namespace }}"
+          spec:
+            selector:
+              app: website
+            ports:
+              - protocol: TCP
+                port: 80
+                targetPort: 8000
+            type: LoadBalancer
+
+    - name: Create TLS secret for AKS
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: website-tls
+            namespace: "{{ website_namespace }}"
+          data:
+            tls.crt: "{{ lookup('file', 'tls.crt') | b64encode }}"
+            tls.key: "{{ lookup('file', 'tls.key') | b64encode }}"
+          type: kubernetes.io/tls
+
+    - name: Create ingress for the website with TLS on AKS
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: website-ingress
+            namespace: "{{ website_namespace }}"
+            annotations:
+              nginx.ingress.kubernetes.io/ssl-redirect: "true"
+          spec:
+            tls:
+              - hosts:
+                  - "example.com"
+                secretName: website-tls
+            rules:
+              - host: "example.com"
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: website-service
+                          port:
+                            number: 80

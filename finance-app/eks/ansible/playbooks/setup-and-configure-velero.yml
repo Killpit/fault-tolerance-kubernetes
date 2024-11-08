@@ -2,7 +2,7 @@
   hosts: localhost
   become: yes
   vars:
-    velero_version: v1.10.1
+    velero_version: v1.15.0
     velero_namespace: velero
     aws_bucket: "your-aws-bucket-name"
     region: "us-west-2"
@@ -25,7 +25,25 @@
           data:
             cloud: "{{ lookup('file', 'aws-credentials.txt') | b64encode }}"
 
-    - name: Install Velero on AWS
+    - name: Download Velero binary from GitHub
+      get_url:
+        url: "https://github.com/vmware-tanzu/velero/releases/download/{{ velero_version }}/velero-{{ velero_version }}-linux-amd64.tar.gz"
+        dest: "/tmp/velero-{{ velero_version }}-linux-amd64.tar.gz"
+        mode: '0755'
+
+    - name: Extract Velero tarball
+      unarchive:
+        src: "/tmp/velero-{{ velero_version }}-linux-amd64.tar.gz"
+        dest: "/tmp/velero-{{ velero_version }}"
+        remote_src: yes
+
+    - name: Move Velero binary to /usr/local/bin
+      copy:
+        src: "/tmp/velero-{{ velero_version }}/velero"
+        dest: /usr/local/bin/velero
+        mode: '0755'
+
+    - name: Install Velero on AWS with File System Backup and Node Agent
       command: >
         velero install --provider aws
         --bucket "{{ aws_bucket }}"
@@ -35,6 +53,10 @@
         --namespace "{{ velero_namespace }}"
         --plugins velero/velero-plugin-for-aws
         --use-volume-snapshots=false
+        --use-node-agent
+        --privileged-node-agent
+        --default-volumes-to-fs-backup
+        --features=EnableCSI
 
     - name: Validate Velero installation
       command: kubectl get pods -n "{{ velero_namespace }}"

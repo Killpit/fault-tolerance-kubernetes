@@ -1,0 +1,86 @@
+- name: Deploy NGINX Ingress Controller with TLS on GKE (Community Version)
+  hosts: localhost
+  vars:
+    kubeconfig: "{{ kubeconfig }}"
+    ingress_namespace: ingress-nginx
+    website_namespace: website
+    cert_secret_name: nginx-tls-cert
+  tasks:
+    - name: Ensure ingress-nginx namespace exists
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        kind: Namespace
+        name: "{{ ingress_namespace }}"
+
+    - name: Create TLS secret for NGINX Ingress
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        namespace: "{{ ingress_namespace }}"
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ cert_secret_name }}"
+          data:
+            tls.crt: "{{ lookup('file', 'tls.crt') | b64encode }}"
+            tls.key: "{{ lookup('file', 'tls.key') | b64encode }}"
+
+    - name: Deploy NGINX ingress controller (Community version) to GKE
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ingress-nginx-controller
+            namespace: "{{ ingress_namespace }}"
+          spec:
+            replicas: 3
+            selector:
+              matchLabels:
+                app: ingress-nginx
+            template:
+              metadata:
+                labels:
+                  app: ingress-nginx
+              spec:
+                containers:
+                  - name: nginx-ingress-controller
+                    image: "nginx/nginx-ingress-controller:latest"  # Community image
+                    args:
+                      - /nginx-ingress-controller
+                      - --publish-service=ingress-nginx/ingress-nginx-controller
+                      - --default-backend-service=ingress-nginx/default-http-backend
+
+    - name: Create Ingress resource for website with TLS
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        namespace: "{{ website_namespace }}"
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: website-ingress
+            annotations:
+              nginx.ingress.kubernetes.io/ssl-redirect: "true"
+              nginx.ingress.kubernetes.io/secure-backends: "true"
+          spec:
+            tls:
+              - hosts:
+                  - "yourwebsite.com"
+                secretName: "{{ cert_secret_name }}"
+            rules:
+              - host: "yourwebsite.com"
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: website-service
+                          port:
+                            number: 80

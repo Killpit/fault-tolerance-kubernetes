@@ -1,14 +1,14 @@
-- name: Install and Configure Velero on Azure
+- name: Install and Configure Velero on Azure with File System Backup
   hosts: localhost
   become: yes
   vars:
-    velero_version: v1.10.1
+    velero_version: v1.15.0
     velero_namespace: velero
     azure_container: "your-azure-container-name"
     resource_group: "your-resource-group"
     storage_account: "your-storage-account"
   tasks:
-    - name: Ensure velero namespace exists
+    - name: Ensure Velero namespace exists
       kubernetes.core.k8s:
         state: present
         kind: Namespace
@@ -26,7 +26,25 @@
           data:
             cloud: "{{ lookup('file', 'azure-credentials.txt') | b64encode }}"
 
-    - name: Install Velero on Azure
+    - name: Download Velero binary from GitHub
+      get_url:
+        url: "https://github.com/vmware-tanzu/velero/releases/download/{{ velero_version }}/velero-{{ velero_version }}-linux-amd64.tar.gz"
+        dest: "/tmp/velero-{{ velero_version }}-linux-amd64.tar.gz"
+        mode: '0755'
+
+    - name: Extract Velero tarball
+      unarchive:
+        src: "/tmp/velero-{{ velero_version }}-linux-amd64.tar.gz"
+        dest: "/tmp/velero-{{ velero_version }}"
+        remote_src: yes
+
+    - name: Move Velero binary to /usr/local/bin
+      copy:
+        src: "/tmp/velero-{{ velero_version }}/velero"
+        dest: /usr/local/bin/velero
+        mode: '0755'
+
+    - name: Install Velero on Azure with File System Backup (FSB) and Node Agent
       command: >
         velero install --provider azure
         --bucket "{{ azure_container }}"
@@ -34,7 +52,10 @@
         --backup-location-config resourceGroup="{{ resource_group }}",storageAccount="{{ storage_account }}"
         --namespace "{{ velero_namespace }}"
         --plugins velero/velero-plugin-for-microsoft-azure
-        --use-volume-snapshots=false
+        --use-node-agent
+        --privileged-node-agent
+        --default-volumes-to-fs-backup
+        --features=EnableCSI
 
     - name: Validate Velero installation
       command: kubectl get pods -n "{{ velero_namespace }}"
