@@ -1,0 +1,40 @@
+---
+- name: Install Calico on EKS and Configure calicoctl
+  hosts: localhost
+  vars:
+    kubeconfig: "/path/to/eks/kubeconfig"
+    calico_manifest_url: "https://docs.tigera.io/manifests/calico-operator.yaml"
+  tasks:
+    - name: Install Calico on EKS using the Calico manifest
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: calico-operator
+            namespace: tigera-operator
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: calico
+            template:
+              metadata:
+                labels:
+                  app: calico
+              spec:
+                containers:
+                  - name: calico-operator
+                    image: tigera/calico-operator:latest
+
+    - name: Configure calicoctl on EKS
+      shell: |
+        curl -O -L https://github.com/projectcalico/calico/releases/download/v3.25.0/calicoctl-linux-amd64
+        chmod +x calicoctl-linux-amd64
+        mv calicoctl-linux-amd64 /usr/local/bin/calicoctl
+        calicoctl config set datastore-type "kubernetes"
+        calicoctl config set kubeconfig "{{ kubeconfig }}"
+      args:
+        creates: /usr/local/bin/calicoctl
