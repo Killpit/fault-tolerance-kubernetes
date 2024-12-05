@@ -27,6 +27,13 @@
                   kubernetes_sd_configs:
                     role: pod
 
+                - job_name: 'chaos-exporter'
+                  static_configs:
+                    - targets: ['chaos-exporter.litmus.svc.cluster.local:8080']
+                  relabel_configs:
+                    - target_label: instance
+                      replacement: 'chaos-exporter-service'
+
     - name: Create Prometheus Service
       kubernetes.core.k8s:
         state: present

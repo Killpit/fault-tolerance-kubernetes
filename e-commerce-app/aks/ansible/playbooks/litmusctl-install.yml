@@ -1,0 +1,13 @@
+---
+- name: Install and configure litmusctl
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Extract the binary for Linux
+      command: tar -zxvf litmusctl-linux-amd64-1.11.0.tar.gz
+    
+    - name: Provide necessary permissions
+      command: chmod +x litmusctl
+
+    - name: Move the litmusctl binary to /usr/local/bin/litmusctl.
+      command: sudo mv litmusctl /usr/local/bin/litmusctl

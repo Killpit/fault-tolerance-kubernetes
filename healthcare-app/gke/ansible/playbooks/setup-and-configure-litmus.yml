@@ -1,0 +1,25 @@
+--- 
+- name: Ansible Playbook to Install and Configure Litmus
+  hosts: localhost
+  become: yes
+  vars:
+    kubeconfig: "{{ kubeconfig }}"
+    namespace: litmus
+  tasks:
+    - name: Ensure ingress-nginx namespace exists
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        kind: Namespace
+        name: "{{ ingress_namespace }}"
+
+    - name: Add the litmus helm repository
+      shell: |
+        helm repo add litmuschaos https://litmuschaos.github.io/litmus-helm/
+        helm repo list
+
+    - name: Create the namespace on which you want to install Litmus ChaosCenter
+      command: kubectl create ns litmus
+
+    - name: Install Litmus ChaosCenter
+      command: helm install chaos litmuschaos/litmus --namespace=litmus --set portal.frontend.service.type=NodePort
