@@ -11,3 +11,6 @@
 
     - name: Move the litmusctl binary to /usr/local/bin/litmusctl.
       command: sudo mv litmusctl /usr/local/bin/litmusctl
+
+    - name: Check litmusctl version
+      command: litmusctl version

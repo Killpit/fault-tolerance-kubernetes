@@ -1,8 +1,8 @@
 ---
-- name: Configure Prometheus
+- name: Configure Prometheus with Prometheus Operator
   hosts: kube_nodes
   tasks:
-    - name: Create Prometheus Configap
+    - name: Create Prometheus ConfigMap
       kubernetes.core.k8s:
         state: present
         namespace: monitoring
@@ -34,63 +34,95 @@
                     - target_label: instance
                       replacement: 'chaos-exporter-service'
 
-    - name: Create Prometheus Service
+    - name: Create Prometheus Custom Resource (CR)
       kubernetes.core.k8s:
         state: present
         namespace: monitoring
         definition:
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: prometheus
-            namespace: monitoring
-          spec:
-            type: LoadBalancer
-            ports:
-              - port: 9090
-                targetPort: 9090
-            selector:
-              app: prometheus
-
-    - name: Create Prometheus Deployment
-      kubernetes.core.k8s:
-        state: present
-        namespace: monitoring
-        definition:
-          apiVersion: apps/v1
-          kind: Deployment
+          apiVersion: monitoring.coreos.com/v1
+          kind: Prometheus
           metadata:
             name: prometheus
             namespace: monitoring
           spec:
             replicas: 3
+            serviceAccountName: prometheus
+            serviceMonitorSelector: {}
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "100m"
+              limits:
+                memory: "128Mi"
+                cpu: "200m"
+            storage:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: ["ReadWriteOnce"]
+                  resources:
+                    requests:
+                      storage: 5Gi
+
+    - name: Create ServiceMonitor for Kubernetes Nodes
+      kubernetes.core.k8s:
+        state: present
+        namespace: monitoring
+        definition:
+          apiVersion: monitoring.coreos.com/v1
+          kind: ServiceMonitor
+          metadata:
+            name: kubernetes-nodes
+            namespace: monitoring
+          spec:
             selector:
               matchLabels:
-                app: prometheus
-            template:
-              metadata:
-                labels:
-                  app: prometheus
-              spec:
-                containers:
-                  - name: prometheus
-                    image: prom/prometheus:latest
-                    args:
-                      - '--config.file=/etc/prometheus/prometheus.yml'
-                      - '--storage.tsdb.path=/prometheus'
-                    ports:
-                      - containerPort: 9090
-                    volumeMounts:
-                      - name: config-volume
-                        mountPath: /etc/prometheus
-                    resources:
-                      requests:
-                        memory: "64Mi"
-                        cpu: "100m"
-                      limits:
-                        memory: "128Mi"
-                        cpu: "200m"
-                volumes:
-                  - name: config-volume
-                    configMap:
-                      name: prometheus-config
+                k8s-app: prometheus
+            endpoints:
+              - port: http
+                interval: 15s
+                path: /metrics
+                targetPort: 9100
+            namespaceSelector:
+              any: true
+
+    - name: Create ServiceMonitor for Kubernetes Pods
+      kubernetes.core.k8s:
+        state: present
+        namespace: monitoring
+        definition:
+          apiVersion: monitoring.coreos.com/v1
+          kind: ServiceMonitor
+          metadata:
+            name: kubernetes-pods
+            namespace: monitoring
+          spec:
+            selector:
+              matchLabels:
+                k8s-app: prometheus
+            endpoints:
+              - port: http
+                interval: 15s
+                path: /metrics
+                targetPort: 8080
+            namespaceSelector:
+              any: true
+
+    - name: Configure Prometheus Alertmanager (Optional)
+      kubernetes.core.k8s:
+        state: present
+        namespace: monitoring
+        definition:
+          apiVersion: monitoring.coreos.com/v1
+          kind: Alertmanager
+          metadata:
+            name: alertmanager
+            namespace: monitoring
+          spec:
+            replicas: 3
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "100m"
+              limits:
+                memory: "128Mi"
+                cpu: "200m"

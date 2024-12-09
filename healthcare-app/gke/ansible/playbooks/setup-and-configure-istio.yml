@@ -59,4 +59,4 @@
 
     - name: Install Istio ingress gateway
       command: >
-        helm install istio-ingress istio/gatewat -n {{ istio_ingress_namespace }} --wait
+        helm install istio-ingress istio/istio-ingressgateway -n {{ istio_ingress_namespace }} --wait

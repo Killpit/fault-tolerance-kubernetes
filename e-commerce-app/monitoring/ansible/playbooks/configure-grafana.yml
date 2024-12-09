@@ -77,3 +77,66 @@
                   - name: config-volume
                     configMap:
                       name: grafana-config
+
+    - name: Wait for Grafana to become available
+      uri:
+        url: "http://{{ grafana_url }}:3000"
+        method: GET
+        status_code: 200
+      retries: 10
+      delay: 15
+
+    - name: Create Prometheus data source in Grafana
+      uri:
+        url: "http://{{ grafana_url }}:3000/api/datasources"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Bearer admin:{{ lookup('ansible.builtin.vault', 'secrets.yml admin_password') }}"
+        body:
+          {
+            "name": "Prometheus",
+            "type": "prometheus",
+            "url": "http://prometheus.monitoring.svc.cluster.local:9090",
+            "access": "proxy",
+            "basicAuth": false
+          }
+        body_format: json
+        status_code: 200
+
+    - name: Import LitmusChaos dashboard into Grafana
+      uri:
+        url: "http://{{ grafana_url }}:3000/api/dashboards/db"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Bearer admin:{{ lookup('ansible.builtin.vault', 'secrets.yml admin_password') }}"
+        body:
+          {
+            "dashboard": {
+              "id": null,
+              "uid": "litmuschaos-dashboard",
+              "title": "LitmusChaos Dashboard",
+              "tags": ["litmuschaos", "chaos-engineering"],
+              "timezone": "browser",
+              "panels": [
+                {
+                  "type": "graph",
+                  "title": "Chaos Experiment Success Rate",
+                  "datasource": "Prometheus",
+                  "targets": [
+                    {
+                      "expr": "litmuschaos_experiment_success_rate",
+                      "legendFormat": "{{experiment}}",
+                      "refId": "A"
+                    }
+                  ]
+                }
+              ],
+              "schemaVersion": 16,
+              "version": 0,
+              "overwrite": true
+            }
+          }
+        body_format: json
+        status_code: 200

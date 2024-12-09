@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-multi-container-app
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-multi-container-app
+  template:
+    metadata:
+      labels:
+        app: my-multi-container-app
+    spec:
+      containers:
+        - name: web-app
+          image: my-web-app-image:latest
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: shared-data
+              mountPath: /usr/share/nginx/html
+          
+        - name: logging-agent
+          image: my-logging-agent-image:latest
+          env:
+            - name: LOG_LEVEL
+              value: "info"
+          volumeMounts:
+            - name: shared-data
+              mountPath: /usr/share/nginx/html
+              
+      volumes:
+        - name: shared-data
+          emptyDir: {}

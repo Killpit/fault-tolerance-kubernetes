@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finance-app
+  labels:
+    app: finance-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finance-app
+  template:
+    metadata:
+      labels:
+        app: finance-app
+      port:
+        - containerPort: 5000
+      imagePullPolicy: Always
