@@ -1,0 +1,22 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: healthcare-app-pdb
+  namespace: healthcare-app
+spec:
+  selector:
+    matchLabels:
+      app: healthcare-app
+  maxUnavailable: 50%
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: healthcare-app-pdb
+  namespace: healthcare-app
+spec:
+  selector:
+    matchLabels:
+      app: healthcare-app
+  minAvailable: 75%

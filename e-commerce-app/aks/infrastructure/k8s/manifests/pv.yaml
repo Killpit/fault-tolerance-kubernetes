@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-demo
+  annotations:
+    pv.kubernetes.io/provisioned-by: disk.csi.azure.com
+spec:
+  capacity:
+    storage: 30Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain  # Options: Retain, Recycle, Delete
+  storageClassName: default  # Ensure this matches the PVC's storageClassName
+  volumeMode: Filesystem
+  csi:
+    driver: disk.csi.azure.com
+    volumeHandle: /subscriptions/<your-subscription-id>/resourceGroups/<your-resource-group>/providers/Microsoft.Compute/disks/<your-disk-name>
+    fsType: ext4  # Specify the filesystem type
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.kubernetes.io/zone
+              operator: In
+              values:
+                - <your-availability-zone>  # E.g., eastus-1

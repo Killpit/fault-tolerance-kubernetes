@@ -1,0 +1,22 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: finance-app-pdb
+  namespace: e-commerce-app
+spec:
+  selector:
+    matchLabels:
+      app: finance-app
+  maxUnavailable: 50%
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: finance-app-pdb
+  namespace: finance-app
+spec:
+  selector:
+    matchLabels:
+      app: finance-app
+  minAvailable: 75%
