@@ -1,25 +1,36 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nodeappdeployment
-  labels:
-    type: backend
-    app: nodeapp
-spec: 
-  replicas: 1
+  name: my-multi-container-app
+  namespace: default
+spec:
+  replicas: 3
   selector:
     matchLabels:
-      type: backend
-      app: nodeapp
+      app: my-multi-container-app
   template:
     metadata:
-      name: nodeapppod
       labels:
-        type: backend
-        app: nodeapp
+        app: my-multi-container-app
     spec:
       containers:
-        - name: nodeappcontainer
-          image: us.gcr.io/kinetic-road-371315/nodeapp:v2
+        - name: web-app
+          image: my-web-app-image:latest
           ports:
-            - containerPort: 80
+            - containerPort: 8080
+          volumeMounts:
+            - name: shared-data
+              mountPath: /usr/share/nginx/html
+          
+        - name: logging-agent
+          image: my-logging-agent-image:latest
+          env:
+            - name: LOG_LEVEL
+              value: "info"
+          volumeMounts:
+            - name: shared-data
+              mountPath: /usr/share/nginx/html
+              
+      volumes:
+        - name: shared-data
+          emptyDir: {}
